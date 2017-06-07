@@ -1,0 +1,5 @@
+//! Firefly Algorithm.
+//!
+//! # Example
+//! ```
+//! ```
