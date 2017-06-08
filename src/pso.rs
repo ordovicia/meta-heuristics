@@ -6,60 +6,22 @@
 //! extern crate rand;
 //!
 //! use meta_heuristics::pso;
-//! use std::{ops, cmp};
-//!
-//! #[derive(Default, Clone, Copy)]
-//! struct Pos {
-//!     x: f64,
-//!     y: f64,
-//! }
-//!
-//! impl ops::Add for Pos {
-//!     type Output = Self;
-//!     fn add(self, rhs: Self) -> Self {
-//!         Self {
-//!             x: self.x + rhs.x,
-//!             y: self.y + rhs.y,
-//!         }
-//!     }
-//! }
-//!
-//! impl ops::Sub for Pos {
-//!     type Output = Self;
-//!     fn sub(self, rhs: Self) -> Self {
-//!         Self {
-//!             x: self.x - rhs.x,
-//!             y: self.y - rhs.y,
-//!         }
-//!     }
-//! }
-//!
-//! impl ops::Mul<f64> for Pos {
-//!     type Output = Self;
-//!     fn mul(self, rhs: f64) -> Self {
-//!         Self {
-//!             x: self.x * rhs,
-//!             y: self.y * rhs,
-//!         }
-//!     }
-//! }
-//!
-//! impl Pos {
-//!     fn eval(&self) -> f64 {
-//!         -(self.x * self.x + self.y * self.y)
-//!     }
-//! }
+//! use std::cmp;
 //!
 //! #[derive(Clone, Copy)]
 //! struct Particle {
-//!     pos: Pos,
-//!     vel: Pos,
-//!     best: (Pos, f64),
+//!     pos: f64,
+//!     vel: f64,
+//!     best: (f64, f64),
+//! }
+//!
+//! fn eval_func(x: f64) -> f64 {
+//!     1.0 - ((x - 3.0) * x + 2.0) * x * x
 //! }
 //!
 //! impl PartialEq for Particle {
 //!     fn eq(&self, rhs: &Self) -> bool {
-//!         self.pos.eval() == rhs.pos.eval()
+//!         self.pos == rhs.pos
 //!     }
 //! }
 //!
@@ -73,59 +35,62 @@
 //!
 //! impl Ord for Particle {
 //!     fn cmp(&self, rhs: &Self) -> cmp::Ordering {
-//!         let self_eval = self.pos.eval();
-//!         let rhs_eval = rhs.pos.eval();
-//!         if self_eval < rhs_eval {
-//!             cmp::Ordering::Greater
-//!         } else if self_eval > rhs_eval {
-//!             cmp::Ordering::Less
-//!         } else {
-//!             cmp::Ordering::Equal
-//!         }
+//!         let self_eval = eval_func(self.pos);
+//!         let rhs_eval = eval_func(rhs.pos);
+//!         self_eval.partial_cmp(&rhs_eval).unwrap()
 //!     }
 //! }
 //!
 //! impl pso::Particle for Particle {
-//!     type Pos = Pos;
+//!     type Pos = f64;
 //!     type Eval = f64;
 //!
 //!     fn new_random() -> Self {
 //!         use rand::{random, Closed01};
 //!
-//!         let Closed01(x) = random::<Closed01<_>>();
-//!         let Closed01(y) = random::<Closed01<_>>();
-//!         let pos = Pos { x, y };
-//!         Self { pos: pos, vel: Pos::default(), best: (pos, pos.eval()) }
+//!         let Closed01(x) = random::<Closed01<f64>>();
+//!         let x = 4.0 * x - 1.0;
+//!         Self {
+//!             pos: x,
+//!             vel: 0.0,
+//!             best: (x, eval_func(x)),
+//!         }
 //!     }
 //!
 //!     fn eval(&self) -> Self::Eval {
-//!         self.pos.eval()
+//!         eval_func(self.pos)
 //!     }
 //!
-//!     fn pos(&self) -> Self::Pos { self.pos }
-//!     fn vel(&self) -> Self::Pos { self.vel }
-//!     fn best(&self) -> (Self::Pos, Self::Eval) { self.best }
-//!     fn pos_mut(&mut self) -> &mut Self::Pos { &mut self.pos }
-//!     fn vel_mut(&mut self) -> &mut Self::Pos { &mut self.vel }
-//!     fn best_mut(&mut self) -> &mut (Self::Pos, Self::Eval) { &mut self.best }
+//!     fn pos(&self) -> Self::Pos {
+//!         self.pos
+//!     }
+//!     fn vel(&self) -> Self::Pos {
+//!         self.vel
+//!     }
+//!     fn best(&self) -> (Self::Pos, Self::Eval) {
+//!         self.best
+//!     }
+//!     fn pos_mut(&mut self) -> &mut Self::Pos {
+//!         &mut self.pos
+//!     }
+//!     fn vel_mut(&mut self) -> &mut Self::Pos {
+//!         &mut self.vel
+//!     }
+//!     fn best_mut(&mut self) -> &mut (Self::Pos, Self::Eval) {
+//!         &mut self.best
+//!     }
 //! }
 //!
 //! fn main() {
 //!     let mut pso: pso::PSO<Particle> = pso::PSO::new(8, 0.9, 0.9, 0.9);
-//!     let mut loop_cnt = 0;
 //!
-//!     loop {
-//!         if loop_cnt >= 30 {
-//!             break;
-//!         }
-//!         if pso.update() {
-//!             break;
-//!         }
-//!
-//!         loop_cnt += 1;
-//!         let (Particle { pos: Pos { x, y }, .. } , e) = pso.best();
-//!         println!("({:.2}, {:.2}) {:.2}", x, y, e);
+//!     for i in 0..10 {
+//!         pso.update();
+//!         let (Particle { pos: x, .. }, e) = pso.best();
+//!         println!("{} {:.3} {:.3}", i, x, e);
 //!     }
+//!
+//!     assert!(pso.best().1 > 1.5);
 //! }
 //! ```
 
@@ -179,7 +144,7 @@ impl<T> PSO<T>
         (*best, best.eval())
     }
 
-    pub fn update(&mut self) -> bool {
+    pub fn update(&mut self) {
         for p in &mut self.particles {
             let new_pos = p.pos() + p.vel();
             *p.pos_mut() = new_pos;
@@ -199,13 +164,7 @@ impl<T> PSO<T>
             }
         }
 
-        let best = Self::calc_best(&self.particles);
-        if best.1 > self.best.1 {
-            self.best = best;
-            false
-        } else {
-            true
-        }
+        self.best = Self::calc_best(&self.particles);
     }
 
     pub fn best(&self) -> (T, T::Eval) {
